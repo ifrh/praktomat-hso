@@ -86,12 +86,12 @@ class IsLatestOfOnlyFailedFilter(admin.SimpleListFilter):
 
 class SolutionAdmin(admin.ModelAdmin):
     model = Solution
-    list_display = ["edit", "view_url", "download_url", "run_checker_url", "task", "show_author", "number", "creation_date", "final", "accepted", "tests_failed" ,"latest_of_only_failed", "plagiarism"]
+    list_display = ["edit", "view_url", "download_url", "run_checker_url", "task", "show_author", "number", "creation_date", "final", "accepted", "tests_failed", "all_checker_finished", "latest_of_only_failed", "plagiarism"]
     list_filter = ["task", "author", "author__groups", "creation_date" , IsLatestOfOnlyFailedFilter ,"final", "accepted", "warnings", "plagiarism"]
     fieldsets = ((None, {
-                    'fields': ( "task", "show_author", "creation_date", ("final", "accepted", "warnings"), "plagiarism", 'useful_links')
+                    'fields': ( "task", "show_author", "creation_date", ("final", "accepted", "warnings", "all_checker_finished"), "plagiarism", 'useful_links')
                 }),)
-    readonly_fields=["task", "show_author", "creation_date", "accepted", "final", "tests_failed", 'useful_links']
+    readonly_fields=["task", "show_author", "creation_date", "accepted", "final", "all_checker_finished", "tests_failed", 'useful_links']
     inlines =  [CheckerResultInline, SolutionFileInline]
     actions = ['run_checkers', 'run_checkers_all', 'mark_plagiarism', 'mark_no_plagiarism']
 

@@ -44,6 +44,7 @@ class Solution(models.Model):
     warnings = models.BooleanField( default = False, help_text = _('Indicates whether the solution has at least failed one public and not required test.'))
     plagiarism = models.BooleanField( default = False, help_text = _('Indicates whether the solution is a rip-off of another one.'))
     final = models.BooleanField( default = False, help_text = _('Indicates whether this solution is the last (accepted) of the author.'))
+    all_checker_finished = models.BooleanField(default = False, help_text = _('Indicates whether all checkers have been run for this solution.'))
 
     def __str__(self):
         return "%s:%s:%s" % (self.task, self.author , self.number)

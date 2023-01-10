@@ -9,7 +9,7 @@ from django.urls import reverse
 from tinymce.widgets import TinyMCE
 from django.utils.html import format_html
 
-from tasks.models import Task, MediaFile, HtmlInjector
+from tasks.models import Task, MediaFile, HtmlInjector, DeadlineExtension
 from solutions.models import Solution, SolutionFile
 from attestation.admin import RatingAdminInline
 
@@ -26,6 +26,10 @@ class MediaInline(admin.StackedInline):
 
 class HtmlInjectorInline(admin.StackedInline):
     model = HtmlInjector
+    extra = 0
+
+class DeadlineExtensionInline(admin.TabularInline):
+    model = DeadlineExtension
     extra = 0
 
 class TaskAdmin(admin.ModelAdmin):
@@ -52,8 +56,8 @@ class TaskAdmin(admin.ModelAdmin):
     date_hierarchy = 'publication_date'
     save_on_top = True
 
-    inlines = [MediaInline] + [HtmlInjectorInline] + CheckerInline.__subclasses__() + [ RatingAdminInline]
-    actions = ['export_tasks', 'run_all_checkers', 'run_all_checkers_on_finals', 'run_all_checkers_on_latest_only_failed', 'delete_attestations', 'unset_all_checker_finished', 'run_all_uploadtime_checkers_on_all']
+    inlines = [DeadlineExtensionInline] + [MediaInline] + [HtmlInjectorInline] + CheckerInline.__subclasses__() + [ RatingAdminInline]
+    actions = ['export_tasks', 'run_all_checkers', 'run_all_checkers_on_finals', 'run_all_checkers_on_latest_only_failed', 'check_unchecked_final_solutions', 'delete_attestations', 'unset_all_checker_finished', 'run_all_uploadtime_checkers_on_all']
 
     formfield_overrides = {
         models.TextField: {'widget': TinyMCE()},
@@ -195,6 +199,17 @@ class TaskAdmin(admin.ModelAdmin):
         allend = timer()
         self.message_user(request, "%d Tasks rechecked : LoopTimer: %d seconds elapsed" % (task_set.count(),allend-allstart))
     run_all_uploadtime_checkers_on_all.short_description = "recheck all submissions with uploadtime checker (Admin)"
+
+
+    def check_unchecked_final_solutions(self, request, queryset):
+        """ Run all checkers on solutions where all_checker_finished is unset and which were submitted through a deadline extension that has expired """
+        start = timer()
+        count = 0
+        for task in queryset:
+            count += task.check_unchecked_final_solutions()
+        end = timer()
+        self.message_user(request, "%d final solutions were successfully checked (%d seconds elapsed)." % (count, end-start))
+    check_unchecked_final_solutions.short_description = "Run checkers for unchecked final solutions (Admin)"
 
 
     def unset_all_checker_finished(self, request, queryset):

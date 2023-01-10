@@ -69,7 +69,7 @@ def solution_list(request, task_id, user_id=None):
 
 
     if request.method == "POST":
-        if task.expired() and not has_extended_rights:
+        if task.expired_for_user(author) and not has_extended_rights:
             return access_denied(request)
 #       fight against multiple open browser window for cheating limits
 #       deep defense
@@ -180,7 +180,7 @@ def solution_list(request, task_id, user_id=None):
 
 
     return render(request, "solutions/solution_list.html",
-                {"formset": formset, "task":task, "solutions": solutions, "final_solution":final_solution,  "uploads_left":uploads_left,  "upload_next_possible_time":upload_next_possible_time,  "dnow":dnow, "attestationsPublished":attestationsPublished, "author":author, "invisible_attestor":get_settings().invisible_attestor})
+                {"formset": formset, "task":task, "solutions": solutions, "final_solution":final_solution,  "uploads_left":uploads_left,  "upload_next_possible_time":upload_next_possible_time,  "dnow":dnow, "attestationsPublished":attestationsPublished, "author":author, "invisible_attestor":get_settings().invisible_attestor, "expired_for_user": task.expired_for_user(author), "submission_date": task.submission_date_for_user(author)})
 
 
 @login_required
@@ -239,7 +239,7 @@ def solution_detail(request, solution_id, full):
     accept_all_solutions = get_settings().accept_all_solutions
 
     if (request.method == "POST"):
-        if solution.final or solution.testupload or solution.task.expired():
+        if solution.final or solution.testupload or solution.task.expired_for_user(solution.author):
             return access_denied(request)
         if not (solution.accepted or accept_all_solutions):
             return access_denied(request)
@@ -265,7 +265,8 @@ def solution_detail(request, solution_id, full):
                         "attestationsPublished": attestationsPublished,
                         "accept_all_solutions": accept_all_solutions,
                         "htmlinjector_snippets": htmlinjector_snippets,
-                        "full":full
+                        "full": full,
+                        "expired_for_user": solution.task.expired_for_user(solution.author)
                       }
                      )
 

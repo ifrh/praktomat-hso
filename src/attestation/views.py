@@ -188,14 +188,20 @@ def attestation_list(request, task_id):
 
     tutored_users = request.user.tutored_users()
 
-    unattested_solutions = Solution.objects.filter(task = task, final=True, attestation = None)
+    unattested_solutions = Solution.objects.filter(task = task, final=True, attestation = None, all_checker_finished = True)
     if request.user.is_tutor: # the trainer sees them all
         unattested_solutions = unattested_solutions.filter(author__tutorial__in = request.user.tutored_tutorials.all())
+    # Only show solutions from users for which the task expired
+    unattested_solutions = [solution for solution in unattested_solutions if task.expired_for_user(solution.author)]
 
     all_attestations = Attestation.objects \
-        .filter(solution__task = task) \
+        .filter(solution__task = task, solution__final = True) \
         .order_by('-created') \
         .select_related('solution', 'solution__author', 'author')
+
+    # Filter out attestations that have already been created for students which get a deadline extension
+    invalid_attestation_ids = [attestation.id for attestation in all_attestations if not task.expired_for_user(attestation.solution.author)]
+    all_attestations = all_attestations.exclude(id__in = invalid_attestation_ids)
 
     my_attestations = all_attestations \
         .filter(author = request.user) \
@@ -378,6 +384,8 @@ def edit_attestation(request, attestation_id):
 @login_required
 def view_attestation(request, attestation_id):
     attest = get_object_or_404(Attestation, pk=attestation_id)
+    # Whether to hide solutions of expired tasks
+    # Deadline extensions are not taken into account here as this setting is meant to be enabled during a test or an exam.
     hide = request.user.is_user and get_settings().hide_solutions_of_expired_tasks and attest.solution.task.expired()
     may_modify = attest.author == request.user or request.user.is_trainer
     may_view = (attest.solution.author == request.user and not hide) or request.user.is_tutor or may_modify
@@ -456,7 +464,7 @@ def user_task_attestation_map(users,tasks,only_published=True):
                     rating = None
             except KeyError:
                 rating = None
-            if rating or (task.expired() and not solution):
+            if rating or (task.expired_for_user(user) and not solution):
                 threshold += task.warning_threshold
 
             if rating is not None:

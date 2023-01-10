@@ -331,6 +331,10 @@ def check_solution(solution, run_all = 0, debug_keep_tmp = True):
     solution.copySolutionFiles(env.tmpdir())
     run_checks(solution, env, run_all)
 
+    if run_all:
+        solution.all_checker_finished = True
+        solution.save()
+
     # Delete temporary directory
     if not(debug_keep_tmp and settings.DEBUG):
         try:

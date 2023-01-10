@@ -29,7 +29,6 @@ from configuration import get_settings
 def taskList(request):
     now = django.utils.timezone.now()
     tasks = Task.objects.filter(publication_date__lte = now).order_by('submission_date', 'title')
-    expired_Tasks = Task.objects.filter(submission_date__lt = now).order_by('publication_date', 'submission_date', 'title')
     try:
         tutors = request.user.tutorial.tutors.all()
     except:
@@ -41,14 +40,13 @@ def taskList(request):
     (_, attestations, threshold, calculated_grade) = user_task_attestation_map([request.user], tasks)[0]
     attestations = list(map(lambda a, b: (a,)+b, tasks, attestations))
 
-    def tasksWithSolutions(tasks):
-        return [(t, t.final_solution(request.user)) for t in tasks]
+    def tasksWithSolutionsAndDeadlineExtension(tasks):
+        return [{'task': t, 'final_solution': t.final_solution(request.user), 'expired': t.expired_for_user(request.user), 'submission_date': t.submission_date_for_user(request.user)} for t in tasks]
 
     return render(request,
                   'tasks/task_list.html',
                   {
-                      'tasks': tasksWithSolutions(tasks),
-                      'expired_tasks': tasksWithSolutions(expired_Tasks),
+                      'tasks': tasksWithSolutionsAndDeadlineExtension(tasks),
                       'attestations': attestations,
                       'show_final_grade': get_settings().final_grades_published,
                       'tutors': tutors,
@@ -72,6 +70,7 @@ def taskDetail(request, task_id):
                   {
                       'task': task,
                       'solutions': my_solutions,
+                      'submission_date': task.submission_date_for_user(request.user),
                   })
 
 class ImportForm(forms.Form):

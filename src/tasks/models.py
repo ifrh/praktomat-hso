@@ -19,6 +19,7 @@ from django.utils.translation import ugettext_lazy as _
 from django.conf import settings
 from django.db.models import Max
 
+from accounts.models import User
 from configuration import get_settings
 
 from utilities.deleting_file_field import DeletingFileField
@@ -63,19 +64,30 @@ class Task(models.Model):
         """returns whether the task has expired"""
         return self.submission_date + get_settings().deadline_tolerance < datetime.now()
 
+    def expired_for_user(self, user):
+        """returns whether the task has expired for a certain user"""
+        for deadline_extension in DeadlineExtension.objects.filter(task=self, user=user):
+            return deadline_extension.timestamp + get_settings().deadline_tolerance < datetime.now()
+        return self.expired()
+
+    def submission_date_for_user(self, user):
+        """returns the effective submission date for a certain user"""
+        for deadline_extension in DeadlineExtension.objects.filter(task=self, user=user):
+            return deadline_extension.timestamp
+        return self.submission_date
+
     def check_all_final_solutions(self):
         from checker.basemodels import check_multiple
-        final_solutions = self.solution_set.filter(final=True)
+        final_solutions = [solution for solution in self.solution_set.filter(final=True) if self.expired_for_user(solution.author)]
         count = check_multiple(final_solutions, True)
 
         if self.expired():
             self.all_checker_finished = True
             self.save()
-        return final_solutions.count()
+        return len(final_solutions)
 
     def check_all_latest_only_failed_solutions(self):
         from checker.basemodels import check_solution
-        from accounts.models import User
         solution_queryset = self.solution_set
         final_solutions_queryset = solution_queryset.filter(final=True)
         final_users = set(final_solutions_queryset.values_list('author', flat=True))
@@ -90,9 +102,16 @@ class Task(models.Model):
             users_only_failed_solutions = only_failed_solution_set.filter(author=user)
             if users_only_failed_solutions.count() > 0:
                 latest_only_failed_solution = users_only_failed_solutions.latest('number')
-                check_solution(latest_only_failed_solution, True)
+                if self.expired_for_user(user):
+                    check_solution(latest_only_failed_solution, True)
                 count += 1
         return count
+
+    def check_unchecked_final_solutions(self):
+        from checker.basemodels import check_multiple
+        final_solutions = [solution for solution in self.solution_set.filter(all_checker_finished=False, final=True) if self.expired_for_user(solution.author)]
+        check_multiple(final_solutions, True)
+        return len(final_solutions)
 
     def get_checkers(self):
         from checker.basemodels import Checker
@@ -378,3 +397,9 @@ class HtmlInjector(models.Model):
         help_text = _("Indicates whether HTML code shall be injected in attestation views, e.g.: in https://praktomat.cs.kit.edu/2016_WS_Abschluss/attestation/134")
     )
     html_file = DeletingFileField(upload_to=get_htmlinjectorfile_storage_path, max_length=500)
+
+
+class DeadlineExtension(models.Model):
+    task = models.ForeignKey(Task, on_delete=models.CASCADE)
+    user = models.ForeignKey(User, on_delete=models.CASCADE, limit_choices_to={"groups__name": "User"})
+    timestamp = models.DateTimeField(help_text = _("The time up until the user has time to complete the task. This time will be extended by the duration configured with the deadline tolerance setting in case the student just missed the extended deadline."))
