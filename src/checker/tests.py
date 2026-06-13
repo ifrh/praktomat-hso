@@ -264,7 +264,7 @@ class TestChecker(TestCase):
         copy_file(src, test_defs)
         DejaGnu.DejaGnuSetup.objects.create(
                     task = self.task,
-                    order = 1,
+                    order = 2,
                     test_defs = test_defs
                     )
         src = join(dirname(dirname(dirname(__file__))), 'examples', 'Tasks', 'GGT', 'DejaGnuTestCases', 'public.exp')
@@ -273,7 +273,7 @@ class TestChecker(TestCase):
         copy_file(src, test_case)
         DejaGnu.DejaGnuTester.objects.create(
                     task = self.task,
-                    order = 2,
+                    order = 3,
                     test_case = test_case
                     )
 
